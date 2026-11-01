@@ -30,10 +30,12 @@ def print_local(plan: Plan) -> None:
         inv = invoice(c, plan)
         print(f"{c.name:<14}{inv.total_tokens / 1e6:>13.2f}M{money(inv.usage_cents):>11}"
               f"{money(inv.credit_cents):>10}{money(inv.platform_fee_cents):>11}{money(inv.amount_due_cents):>12}")
+        lower = 0
         for tier, qty, cents in inv.tier_lines:
             if qty:
-                bound = "and above" if tier.up_to_tokens is None else f"up to {tier.up_to_tokens / 1e6:g}M"
-                print(f"    tier {bound:<12} {qty / 1e6:>8.2f}M x {money(tier.cents_per_m)}/1M = {money(cents)}")
+                band = f"over {lower / 1e6:g}M" if tier.up_to_tokens is None else f"up to {tier.up_to_tokens / 1e6:g}M"
+                print(f"    tier {band:<12} {qty / 1e6:>8.2f}M x {money(tier.cents_per_m)}/1M = {money(cents)}")
+            lower = tier.up_to_tokens or lower
 
 
 def export_csv(path: str) -> None:
