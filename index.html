@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usage Billing Simulator</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0;
+    --accent: #635bff; --accent-soft: #e9e8ff; --good: #1a7f4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --card: #1d1d20; --text: #ececee; --muted: #9a9aa2; --line: #2e2e33;
+      --accent: #8b85ff; --accent-soft: #2a2850; --good: #4cc38a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  select, input { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px;
+                  background: var(--bg); color: var(--text); font: inherit; }
+  .row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .total { font-size: 30px; font-weight: 650; margin: 4px 0 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: right; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  tr.sum td { font-weight: 650; border-bottom: none; }
+  .chart { display: flex; align-items: flex-end; gap: 3px; height: 120px; margin: 8px 0 4px; }
+  .bar { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 2px; }
+  .axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .note { font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .stack { display: grid; gap: 16px; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Usage-based billing simulator</h1>
+  <p class="sub">An AI assistant billed on tokens: a platform fee plus graduated token tiers, with prepaid credit drawn down by usage. Change the rate card and every invoice updates.</p>
+
+  <div class="grid">
+    <section class="card" aria-label="Pricing controls">
+      <h2>Rate card</h2>
+      <label for="customer">Customer</label>
+      <select id="customer"></select>
+      <label for="fee">Platform fee ($ / month)</label>
+      <input id="fee" type="number" min="0" step="10" value="500">
+      <label>Price per 1M tokens ($): 0-50M / 50-200M / 200M+</label>
+      <div class="row3">
+        <input id="t0" type="number" min="0" step="0.05" value="2.00" aria-label="Tier 1 price">
+        <input id="t1" type="number" min="0" step="0.05" value="1.50" aria-label="Tier 2 price">
+        <input id="t2" type="number" min="0" step="0.05" value="1.00" aria-label="Tier 3 price">
+      </div>
+      <label for="credit">Prepaid credit for this customer ($)</label>
+      <input id="credit" type="number" min="0" step="50">
+      <p class="note">Credit draws down usage charges only, not the platform fee.</p>
+    </section>
+
+    <div class="stack">
+      <section class="card" aria-label="Invoice">
+        <h2>Invoice, 30 days <span class="pill" id="segment"></span></h2>
+        <div class="total" id="due"></div>
+        <div class="note" id="tokens"></div>
+        <div class="chart" id="chart" aria-label="Daily token usage"></div>
+        <div class="axis"><span>Day 1</span><span>Day 30</span></div>
+        <table id="lines"></table>
+      </section>
+      <section class="card" aria-label="All customers">
+        <h2>All customers under this rate card</h2>
+        <table id="all"></table>
+      </section>
+    </div>
+  </div>
+  <p class="note" style="margin-top:20px">Example data only. Built by Daniel Alumona &middot; <a href="https://www.linkedin.com/in/danielalumona" style="color:var(--accent)">LinkedIn</a> &middot; source and Stripe test-mode replay in this repository.</p>
+</main>
+<script>
+// Same engine as billing.py: integer cents, deterministic usage, graduated tiers rounded half up.
+const BOUNDS = [50000000, 200000000, null];
+const CUSTOMERS = [
+  { id: "northwind", name: "Northwind AI", segment: "Seed stage, pay as you go", base: 1200000, credit: 0 },
+  { id: "lumen", name: "Lumen Labs", segment: "Series B, prepaid credit", base: 5000000, credit: 25000 },
+  { id: "acme", name: "Acme Capital", segment: "Enterprise, high volume", base: 9000000, credit: 0 },
+];
+
+function dailyTokens(base) {
+  const step = Math.floor(base / 20), out = [];
+  for (let day = 1; day <= 30; day++) out.push(base + ((day * 37) % 11) * step);
+  return out;
+}
+function priceTiers(total, centsPerM) {
+  let lower = 0;
+  return centsPerM.map((cents, i) => {
+    const bound = BOUNDS[i];
+    const upper = bound === null ? total : Math.min(total, bound);
+    const qty = Math.max(0, upper - lower);
+    const line = Math.floor((qty * cents + 500000) / 1000000);
+    if (bound !== null) lower = bound;
+    return { bound, qty, cents, line };
+  });
+}
+function invoice(c, plan) {
+  const days = dailyTokens(c.base);
+  const total = days.reduce((a, b) => a + b, 0);
+  const lines = priceTiers(total, plan.tiers);
+  const usage = lines.reduce((a, l) => a + l.line, 0);
+  const credit = Math.min(c.credit, usage);
+  return { days, total, lines, usage, credit, fee: plan.fee, due: plan.fee + usage - credit };
+}
+const money = cents => "$" + (cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const toCents = id => Math.max(0, Math.round(parseFloat(document.getElementById(id).value || "0") * 100));
+const $ = id => document.getElementById(id);
+
+const select = $("customer");
+CUSTOMERS.forEach((c, i) => select.add(new Option(c.name, i)));
+function syncCredit() { $("credit").value = (CUSTOMERS[select.value].credit / 100).toFixed(0); }
+
+function render() {
+  CUSTOMERS[select.value].credit = toCents("credit");
+  const plan = { fee: toCents("fee"), tiers: ["t0", "t1", "t2"].map(toCents) };
+  const c = CUSTOMERS[select.value], inv = invoice(c, plan);
+
+  $("segment").textContent = c.segment;
+  $("due").textContent = money(inv.due);
+  $("tokens").textContent = (inv.total / 1e6).toFixed(2) + "M tokens this period";
+  const max = Math.max(...inv.days);
+  $("chart").innerHTML = inv.days.map((t, i) =>
+    `<div class="bar" style="height:${(t / max * 100).toFixed(1)}%" title="Day ${i + 1}: ${(t / 1e6).toFixed(2)}M tokens"></div>`).join("");
+
+  const labels = ["0-50M", "50-200M", "200M+"];
+  $("lines").innerHTML = "<tr><th>Line</th><th>Quantity</th><th>Rate</th><th>Amount</th></tr>" +
+    inv.lines.map((l, i) => `<tr><td>Tokens, tier ${labels[i]}</td><td>${(l.qty / 1e6).toFixed(2)}M</td><td>${money(l.cents)}/1M</td><td>${money(l.line)}</td></tr>`).join("") +
+    `<tr><td>Prepaid credit applied</td><td></td><td></td><td>-${money(inv.credit)}</td></tr>` +
+    `<tr><td>Platform fee</td><td></td><td></td><td>${money(inv.fee)}</td></tr>` +
+    `<tr class="sum"><td>Amount due</td><td></td><td></td><td>${money(inv.due)}</td></tr>`;
+
+  $("all").innerHTML = "<tr><th>Customer</th><th>Tokens</th><th>Usage</th><th>Credit</th><th>Amount due</th></tr>" +
+    CUSTOMERS.map(x => { const v = invoice(x, plan);
+      return `<tr><td>${x.name}</td><td>${(v.total / 1e6).toFixed(2)}M</td><td>${money(v.usage)}</td><td>${money(v.credit)}</td><td>${money(v.due)}</td></tr>`; }).join("");
+}
+
+select.addEventListener("change", () => { syncCredit(); render(); });
+["fee", "t0", "t1", "t2", "credit"].forEach(id => $(id).addEventListener("input", render));
+syncCredit();
+render();
+</script>
+</body>
+</html>
