@@ -1,5 +1,7 @@
 # Usage-based billing for an AI product
 
+[![tests](https://github.com/DanAlumona/usage-billing-demo/actions/workflows/tests.yml/badge.svg)](https://github.com/DanAlumona/usage-billing-demo/actions/workflows/tests.yml)
+
 **Live demo:** https://danalumona.github.io/usage-billing-demo/ · Built by [Daniel Alumona](https://www.linkedin.com/in/danielalumona)
 
 A small, dependency-free demo of how an AI company might bill customers on usage. Customers pay a platform fee plus graduated token tiers, and prepaid credit draws down usage charges. It has three parts:
@@ -100,6 +102,14 @@ These are usage-only figures. The $500 platform fee is modelled locally, and Lum
 | Rate card | Platform fee plus graduated token tiers (`DEFAULT_PLAN`) |
 | Commit / prepaid credit | Credit that draws down usage charges (a customer balance in Stripe) |
 | Invoice | Tier lines, minus credit, plus platform fee |
+
+## Tests
+
+```bash
+python -m unittest -v
+```
+
+`tests/test_billing.py` checks tier boundaries, rounding half up to the cent, credits never exceeding usage, the exact invoice amounts above (the ones Stripe matched), Stripe's form encoding, and that `--stripe` refuses a live key before making any API call. GitHub Actions runs them on Python 3.9, 3.12 and 3.13 on every push.
 
 ## Design choices
 
