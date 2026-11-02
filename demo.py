@@ -102,7 +102,9 @@ def run_stripe(plan: Plan) -> None:
 
     runs = []
     for c in CUSTOMERS:
+        # Invoiced subscriptions need a customer email; example.com addresses never receive mail.
         cust = stripe_post(key, "/customers", {"name": c.name, "description": c.segment,
+                                               "email": f"billing+{c.id}@example.com",
                                                "metadata": {"demo_run": run}})
         if c.prepaid_credit_cents:
             # Customer balance stands in for a prepaid commit; it is applied to the next invoice.
