@@ -78,6 +78,19 @@ Notes:
 - **Rounding:** a 1-cent difference can appear where Stripe's rounding differs from round-half-up.
 - **Clean-up:** everything is created in test mode; delete or deactivate it from the Stripe dashboard afterwards.
 
+## Verified against Stripe (2 Nov 2026)
+
+`python demo.py --stripe`, run against a Stripe sandbox. Stripe's invoice previews match the local engine to the cent:
+
+```
+Customer        Local usage  Stripe subtotal   Local due  Stripe due  Match
+Northwind AI         $90.60           $90.60      $90.60      $90.60  yes
+Lumen Labs          $308.13          $308.13      $58.13      $58.13  yes
+Acme Capital        $464.75          $464.75     $464.75     $464.75  yes
+```
+
+These are usage-only figures. The $500 platform fee is modelled locally, and Lumen's $250 prepaid credit is applied by Stripe as a customer balance.
+
 ## How this maps to usage-billing platform concepts
 
 | Concept | Here |
