@@ -114,7 +114,7 @@ python -m unittest -v
 ## Design choices
 
 - **Integer cents** throughout, so the Python engine, the browser simulator and Stripe can be compared exactly.
-- **Deterministic usage** (no randomness), so every run and every reviewer sees the same numbers.
+- **Deterministic usage** (no randomness), so every run and every reader sees the same numbers.
 - **Idempotent events:** each meter event has a unique identifier, so re-sending doesn't double count.
 - **Standard library only**, so it runs anywhere Python does.
 
