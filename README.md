@@ -44,7 +44,7 @@ Lumen's usage: 50M x $2.00 = $100.00, plus 138.75M x $1.50 = $208.125, rounded h
 
 ## Run it
 
-Python 3.9+ is required. There are no packages to install.
+Python 3.10+ is required. There are no packages to install.
 
 ```bash
 python demo.py
@@ -109,7 +109,7 @@ These are usage-only figures. The $500 platform fee is modelled locally, and Lum
 python -m unittest -v
 ```
 
-`tests/test_billing.py` checks tier boundaries, rounding half up to the cent, credits never exceeding usage, the exact invoice amounts above (the ones Stripe matched), Stripe's form encoding, and that `--stripe` refuses a live key before making any API call. GitHub Actions runs them on Python 3.9, 3.12 and 3.13 on every push.
+`tests/test_billing.py` checks tier boundaries, rounding half up to the cent, credits never exceeding usage, the exact invoice amounts above (the ones Stripe matched), Stripe's form encoding, and that `--stripe` refuses a live key before making any API call. GitHub Actions runs them on Python 3.10, 3.12 and 3.13 on every push.
 
 ## Design choices
 
